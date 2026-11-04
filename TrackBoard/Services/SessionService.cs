@@ -31,7 +31,8 @@ public interface ISessionService
 public class SessionService(
     TrackBoardDbContext db,
     IResourceAuthorizer authorizer,
-    ITrackLeaderboardService leaderboards) : ISessionService
+    ITrackLeaderboardService leaderboards,
+    IDragLeaderboardService dragBoards) : ISessionService
 {
     private static readonly Expression<Func<Session, SessionSummaryResponse>> ToSummary =
         s => new SessionSummaryResponse
@@ -48,6 +49,7 @@ public class SessionService(
             Voided = s.Voided,
             LapCount = s.Laps.Count,
             BestLapMs = s.Laps.Min(l => (int?)l.TimeMs),
+            DragResultCount = s.DragResults.Count,
         };
 
     public Task<PagedResult<SessionSummaryResponse>> ListAsync(
@@ -77,6 +79,7 @@ public class SessionService(
             .Include(s => s.Track)
             .Include(s => s.Laps)
             .ThenInclude(l => l.Sectors)
+            .Include(s => s.DragResults)
             .AsSplitQuery()
             .FirstOrDefaultAsync(s => s.Id == id, ct);
 
@@ -101,6 +104,29 @@ public class SessionService(
             ranksByLap = standings.ToDictionary(s => s.LapId, s => s.Rank);
         }
 
+        var countsForDragBoard = DragRules.Counts(session);
+        var dragResults = new List<DragResultResponse>();
+
+        foreach (var result in session.DragResults.OrderBy(r => r.Metric))
+        {
+            int? rank = null;
+
+            if (countsForDragBoard
+                && (await dragBoards.GetRanksAsync(result.Metric, ct)).TryGetValue(result.Id, out var standing))
+            {
+                rank = standing;
+            }
+
+            dragResults.Add(new DragResultResponse
+            {
+                Metric = result.Metric,
+                TimeMs = result.TimeMs,
+                TrapSpeedKmh = result.TrapSpeedKmh,
+                CountsForLeaderboard = countsForDragBoard,
+                LeaderboardRank = rank,
+            });
+        }
+
         return new SessionResponse
         {
             Id = session.Id,
@@ -115,6 +141,8 @@ public class SessionService(
             Voided = session.Voided,
             LapCount = laps.Count,
             BestLapMs = laps.Count > 0 ? laps.Min(l => l.TimeMs) : null,
+            DragResultCount = dragResults.Count,
+            DragResults = dragResults,
             Weather = ToWeather(session),
             AppVersion = session.AppVersion,
             Laps = laps
@@ -171,6 +199,7 @@ public class SessionService(
         }
 
         var previousTrackId = session?.TrackId;
+        var hadDragResults = !created && await db.DragResults.AnyAsync(r => r.SessionId == id, ct);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -185,6 +214,7 @@ public class SessionService(
             // Deleted in SQL first: re-inserting the same lap numbers in one SaveChanges would
             // collide with the unique (session, lap number) index.
             await db.Laps.Where(l => l.SessionId == id).ExecuteDeleteAsync(ct);
+            await db.DragResults.Where(r => r.SessionId == id).ExecuteDeleteAsync(ct);
         }
 
         session.Name = request.Name;
@@ -217,11 +247,24 @@ public class SessionService(
                 .ToList(),
         }));
 
+        db.DragResults.AddRange(request.DragResults.Select(r => new DragResult
+        {
+            SessionId = id,
+            Metric = r.Metric!.Value,
+            TimeMs = r.TimeMs,
+            TrapSpeedKmh = r.TrapSpeedKmh,
+        }));
+
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
         // Moving a session between tracks changes two standings, not one.
         await leaderboards.InvalidateAsync([previousTrackId, request.TrackId], ct);
+
+        if (hadDragResults || request.DragResults.Count > 0)
+        {
+            await dragBoards.InvalidateAsync(ct);
+        }
 
         return new UpsertResult<SessionResponse>(
             await GetAsync(id, ct) ?? throw new InvalidOperationException("Session vanished after upsert."),
@@ -236,12 +279,18 @@ public class SessionService(
         await authorizer.EnsureAsync<IOwnedResource>(session, ResourceOperations.Delete);
 
         var trackId = session.TrackId;
+        var hadDragResults = await db.DragResults.AnyAsync(r => r.SessionId == id, ct);
 
-        // Laps and their sectors go with it (database cascade).
+        // Laps, their sectors and drag results go with it (database cascade).
         db.Sessions.Remove(session);
         await db.SaveChangesAsync(ct);
 
         await leaderboards.InvalidateAsync([trackId], ct);
+
+        if (hadDragResults)
+        {
+            await dragBoards.InvalidateAsync(ct);
+        }
     }
 
     private static void ApplyWeather(Session session, WeatherDto? weather)

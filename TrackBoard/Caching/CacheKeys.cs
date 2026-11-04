@@ -1,4 +1,5 @@
 using System.Globalization;
+using TrackBoard.Entities;
 
 namespace TrackBoard.Caching;
 
@@ -35,6 +36,18 @@ public static class CacheKeys
         string.Create(
             CultureInfo.InvariantCulture,
             $"trackboard:{Version}:standings:track:{trackId}");
+
+    /// <summary>
+    /// Every car's best time on one drag metric. One entry serves every class filter, so a
+    /// class view and the overall board can never disagree.
+    /// </summary>
+    public static string DragStandings(DragMetric metric) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"trackboard:{Version}:standings:drag:{metric}");
+
+    /// <summary>Tag on every drag board. There are few of them, so they all clear together.</summary>
+    public const string DragTag = "drag";
 
     /// <summary>
     /// An event's live board. Also tagged with its track, so any lap uploaded on that track

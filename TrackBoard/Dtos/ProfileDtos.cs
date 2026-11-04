@@ -116,6 +116,8 @@ public record ProfileStatsResponse(
 
 public record ExportLap(int LapNumber, int TimeMs, bool SignalGap, IReadOnlyList<SectorSplitDto> Sectors);
 
+public record ExportDragResult(DragMetric Metric, int TimeMs, double? TrapSpeedKmh);
+
 public record ExportSession(
     Guid Id,
     string Name,
@@ -127,7 +129,8 @@ public record ExportSession(
     SessionVisibility Visibility,
     bool Voided,
     string? AppVersion,
-    IReadOnlyList<ExportLap> Laps);
+    IReadOnlyList<ExportLap> Laps,
+    IReadOnlyList<ExportDragResult> DragResults);
 
 public record ExportTrackPoint(
     int Seq,

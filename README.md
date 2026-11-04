@@ -95,7 +95,8 @@ Every route is under `/api/v1`. The full TrackPro contract is
 | Vehicles | `/api/v1/vehicles` | owner only; `PUT` creates or replaces under an app-generated id |
 | Tracks | `/api/v1/tracks` | **public** reads of published tracks; owner writes |
 | Track leaderboard | `/api/v1/tracks/{id}/leaderboard` | **public**; a token adds your own `me` entry |
-| Sessions | `/api/v1/sessions` | owner only; `PUT` uploads a whole session with its laps |
+| Drag boards | `/api/v1/drag/leaderboard` | **public**; `?metric=` and `?class=`; a token adds your own `me` entry |
+| Sessions | `/api/v1/sessions` | owner only; `PUT` uploads a whole session with its laps or drag results |
 | Driver pages | `/api/v1/drivers/{id}` | **public**; name, country, bio, photo and standings on published tracks — never email or private data |
 | Events | `/api/v1/events` | reading an event and its live `/board` is **public** (anyone with the link); create, edit and delete are the host's; `POST /join` with the 6-character code |
 
@@ -115,6 +116,12 @@ A lap reaches its track's leaderboard when its session is `Ranked` and not voide
 had no GPS signal gap, and the track is published. **Lap times are not verified** — see the
 contract's decision 5. Once a track has a ranked lap its geometry is frozen, because TrackPro
 derives the timing gates from those points.
+
+A drag result reaches its board when its session is `Ranked`, not voided and has a car on it.
+There is one board per metric (0-100 km/h, 100-200 km/h, quarter mile), one line per driver,
+filtered by power-to-weight class from the garage. TrackPro drops runs with a GPS gap or a clear
+elevation drop before upload; beyond a floor on impossible times, **drag times are not verified
+either**.
 
 **Parked championship model**
 

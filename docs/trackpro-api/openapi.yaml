@@ -487,8 +487,8 @@ paths:
       tags: [Sessions]
       operationId: upsertSession
       description: >-
-        Create or replace a session together with **all** of its laps and sector splits.
-        Laps absent from the body are deleted.
+        Create or replace a session together with **all** of its laps and sector splits, or
+        its drag results. Laps and results absent from the body are deleted.
       requestBody:
         required: true
         content:
@@ -523,6 +523,34 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ── Leaderboards ────────────────────────────────────────────────────────────────────
+  /drag/leaderboard:
+    get:
+      tags: [Leaderboards]
+      operationId: getDragLeaderboard
+      description: >-
+        Each driver's best time on one metric, fastest first, optionally within one
+        power-to-weight class. Public; a token adds the caller's own entry as `me`.
+      security:
+        - {}
+        - bearer: []
+      parameters:
+        - name: metric
+          in: query
+          schema: { $ref: '#/components/schemas/DragMetric' }
+        - name: class
+          in: query
+          schema: { $ref: '#/components/schemas/DragClass' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: The board, plus the caller's own position if they have one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DragLeaderboard' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+
   /tracks/{trackId}/leaderboard:
     parameters:
       - $ref: '#/components/parameters/TrackId'
@@ -1046,6 +1074,93 @@ components:
           type: array
           maxItems: 500
           items: { $ref: '#/components/schemas/LapWrite' }
+        dragResults:
+          type: array
+          maxItems: 3
+          description: A drag session's results. Not allowed alongside a track or laps.
+          items: { $ref: '#/components/schemas/DragResultWrite' }
+
+    DragMetric:
+      type: string
+      enum: [ZeroToHundred, HundredToTwoHundred, QuarterMile]
+      default: ZeroToHundred
+
+    DragClass:
+      type: string
+      enum: [D, C, B, A, S]
+      description: >-
+        Horsepower per tonne from the garage. D under 100, C under 150, B under 250, A under
+        400, S above.
+
+    DragResultWrite:
+      type: object
+      required: [metric, timeMs]
+      properties:
+        metric: { $ref: '#/components/schemas/DragMetric' }
+        timeMs:
+          type: integer
+          maximum: 120000
+          description: >-
+            Floors at 1000 for ZeroToHundred, 1500 for HundredToTwoHundred and 5000 for
+            QuarterMile.
+        trapSpeedKmh:
+          type: [number, 'null']
+          minimum: 1
+          maximum: 700
+          description: Quarter mile only.
+
+    DragResult:
+      type: object
+      required: [metric, timeMs, countsForLeaderboard]
+      properties:
+        metric: { $ref: '#/components/schemas/DragMetric' }
+        timeMs: { type: integer }
+        trapSpeedKmh: { type: [number, 'null'] }
+        countsForLeaderboard: { type: boolean }
+        leaderboardRank:
+          type: [integer, 'null']
+          description: Overall rank if this is the driver's best on the board.
+
+    DragLeaderboardEntry:
+      type: object
+      required: [rank, userId, displayName, timeMs, gapToLeaderMs, vehicle, setAt, gpsSource]
+      properties:
+        rank: { type: integer }
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        timeMs: { type: integer }
+        gapToLeaderMs: { type: integer }
+        trapSpeedKmh: { type: [number, 'null'] }
+        vehicle:
+          type: object
+          required: [manufacturer, model, year]
+          properties:
+            manufacturer: { type: string }
+            model: { type: string }
+            year: { type: integer }
+        carClass:
+          oneOf:
+            - $ref: '#/components/schemas/DragClass'
+            - type: 'null'
+        setAt: { type: string, format: date-time }
+        gpsSource: { $ref: '#/components/schemas/GpsSource' }
+
+    DragLeaderboard:
+      type: object
+      required: [metric, entries]
+      properties:
+        metric: { $ref: '#/components/schemas/DragMetric' }
+        carClass:
+          oneOf:
+            - $ref: '#/components/schemas/DragClass'
+            - type: 'null'
+        entries:
+          type: array
+          items: { $ref: '#/components/schemas/DragLeaderboardEntry' }
+        me:
+          oneOf:
+            - $ref: '#/components/schemas/DragLeaderboardEntry'
+            - type: 'null'
 
     SessionSummary:
       type: object
@@ -1063,6 +1178,7 @@ components:
         voided: { type: boolean }
         lapCount: { type: integer }
         bestLapMs: { type: [integer, 'null'] }
+        dragResultCount: { type: integer }
 
     Session:
       allOf:
@@ -1075,6 +1191,9 @@ components:
             laps:
               type: array
               items: { $ref: '#/components/schemas/Lap' }
+            dragResults:
+              type: array
+              items: { $ref: '#/components/schemas/DragResult' }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
 

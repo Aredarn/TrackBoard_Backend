@@ -79,6 +79,44 @@ namespace TrackBoard.Data.Migrations
                     b.ToTable("circuits", (string)null);
                 });
 
+            modelBuilder.Entity("TrackBoard.Entities.DragResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Metric")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("metric");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<int>("TimeMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("time_ms");
+
+                    b.Property<double?>("TrapSpeedKmh")
+                        .HasColumnType("double precision")
+                        .HasColumnName("trap_speed_kmh");
+
+                    b.HasKey("Id")
+                        .HasName("pk_drag_results");
+
+                    b.HasIndex("Metric", "TimeMs")
+                        .HasDatabaseName("ix_drag_results_metric_time_ms");
+
+                    b.HasIndex("SessionId", "Metric")
+                        .IsUnique()
+                        .HasDatabaseName("ix_drag_results_session_id_metric");
+
+                    b.ToTable("drag_results", (string)null);
+                });
+
             modelBuilder.Entity("TrackBoard.Entities.EventEntry", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -959,6 +997,18 @@ namespace TrackBoard.Data.Migrations
                     b.ToTable("vehicles", (string)null);
                 });
 
+            modelBuilder.Entity("TrackBoard.Entities.DragResult", b =>
+                {
+                    b.HasOne("TrackBoard.Entities.Session", "Session")
+                        .WithMany("DragResults")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_drag_results_sessions_session_id");
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("TrackBoard.Entities.EventEntry", b =>
                 {
                     b.HasOne("TrackBoard.Entities.TrackEvent", null)
@@ -1217,6 +1267,8 @@ namespace TrackBoard.Data.Migrations
 
             modelBuilder.Entity("TrackBoard.Entities.Session", b =>
                 {
+                    b.Navigation("DragResults");
+
                     b.Navigation("Laps");
                 });
 
