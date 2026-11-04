@@ -67,6 +67,9 @@ public class Session : BaseEntity, IOwnedResource
     public double? WeatherPressureHpa { get; set; }
 
     public ICollection<Lap> Laps { get; set; } = [];
+
+    /// <summary>Set on a drag session, which has no track and no laps.</summary>
+    public ICollection<DragResult> DragResults { get; set; } = [];
 }
 
 /// <summary>A completed lap, or a completed run on a sprint track.</summary>

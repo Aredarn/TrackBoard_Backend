@@ -37,6 +37,7 @@ public class VehicleService(
     TrackBoardDbContext db,
     IResourceAuthorizer authorizer,
     ITrackLeaderboardService leaderboards,
+    IDragLeaderboardService dragBoards,
     IMediaStorage media,
     IOptions<QuotaSettings> quotas) : IVehicleService
 {
@@ -178,6 +179,12 @@ public class VehicleService(
                 .ToListAsync(ct);
 
             await leaderboards.InvalidateAsync(trackIds, ct);
+
+            // Drag boards show the same, and power and weight decide the car's class.
+            if (await db.DragResults.AnyAsync(r => r.Session.VehicleId == id, ct))
+            {
+                await dragBoards.InvalidateAsync(ct);
+            }
         }
 
         return new UpsertResult<VehicleResponse>(

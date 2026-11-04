@@ -27,7 +27,6 @@ behind it, how it maps onto TrackPro's Room schema, and what each side has to ch
 |---|---|
 | Lap verification / anti-cheat | Decided against for now. Lap times are trusted as uploaded (see decision 5). |
 | GPS traces (`LapInfoData`) | Their only v1 purpose was verification. They can come back with it, or with features like ghost laps. |
-| Drag runs | `DerivedData` is never written by the app today, so there's no persisted drag result to upload. Drag timing needs its own storage design on the device first. |
 | Raw session GPS (`RawGPSData`, `SmoothedGPSData`) | Too large, and not needed for ranking. |
 | Restoring data to a new device | The phone stays the source of truth and the server is a one-way mirror. Two-way sync is a much larger problem. |
 | Series / championship points | Already built, but it doesn't match what TrackPro records. It's parked, not deleted. |
@@ -111,6 +110,32 @@ endpoint without breaking existing clients.
 Phone-GPS and ESP32 laps share **one leaderboard**. Every session records `gpsSource`
 (`Wifi` or `Bluetooth` for the ESP32 module, `PhoneGps` for the phone), and each
 leaderboard entry shows it, so viewers can tell a phone-timed lap apart from an ESP32 one.
+
+### 6a. Drag boards
+
+Added after v1. A drag session goes up through the same `PUT /sessions/{id}`, with no track, no
+laps and up to three `dragResults`: `ZeroToHundred`, `HundredToTwoHundred`, `QuarterMile`. The
+metrics are fixed in metric units whatever the driver reads in the app, so everyone on a board
+ran the same thing.
+
+- **Posting is per session.** Nothing goes up until the driver posts that run, and sharing must
+  be on. Withdrawing a post deletes the session from the server, like any other withdrawal.
+- **The app decides what is clean.** Each run is timed on its own and a time is dropped if its
+  stretch has a GPS gap (over 0.5 s on an ESP32, 1.5 s on a phone) or the road falls more than
+  5 m and 2%, read over at least 300 m. Altitude that was not recorded counts for nothing. The
+  session then uploads its best clean time per metric, so results are stored rather than the
+  trace.
+- **A result needs a car.** Without one it has no class and is not ranked.
+- **The server refuses the impossible.** 0-100 under 1.0 s, 100-200 under 1.5 s and a quarter
+  mile under 5.0 s are a 400. The app drops these first, since one would fail the whole upload.
+- **Classes are derived, not stored.** Horsepower per tonne from the garage: D under 100, C under
+  150, B under 250, A under 400, S above. Editing a car moves its results straight away. A car
+  with no power or weight ranks overall but in no class.
+- **One line per driver**, on the overall board and within each class, so a driver's slower car
+  still shows in its own class. As on a track, a tie goes to whoever set the time first.
+
+`GET /sessions` and a restore on a new phone see these sessions too. The app restores only
+sessions with a track and laps, so drag sessions stay on the server and are not brought back.
 
 ### 7. Units and formats
 

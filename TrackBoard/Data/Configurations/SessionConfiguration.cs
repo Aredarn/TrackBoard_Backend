@@ -42,6 +42,12 @@ public class SessionConfiguration : IEntityTypeConfiguration<Session>
             .HasForeignKey(l => l.SessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder
+            .HasMany(s => s.DragResults)
+            .WithOne(r => r.Session)
+            .HasForeignKey(r => r.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasIndex(s => new { s.OwnerId, s.StartedAt });
         builder.HasIndex(s => s.VehicleId);
         // The leaderboard reads every ranked, non-voided session on a track.
@@ -62,6 +68,20 @@ public class LapConfiguration : IEntityTypeConfiguration<Lap>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(l => new { l.SessionId, l.LapNumber }).IsUnique();
+    }
+}
+
+public class DragResultConfiguration : IEntityTypeConfiguration<DragResult>
+{
+    public void Configure(EntityTypeBuilder<DragResult> builder)
+    {
+        builder.ToTable("drag_results");
+
+        builder.Property(r => r.Metric).HasConversion<string>().HasMaxLength(30);
+
+        builder.HasIndex(r => new { r.SessionId, r.Metric }).IsUnique();
+        // Every board reads one metric, fastest first.
+        builder.HasIndex(r => new { r.Metric, r.TimeMs });
     }
 }
 

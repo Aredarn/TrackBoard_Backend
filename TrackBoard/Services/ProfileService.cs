@@ -39,6 +39,7 @@ public class ProfileService(
     IResourceAuthorizer authorizer,
     IVehicleService vehicles,
     ITrackLeaderboardService leaderboards,
+    IDragLeaderboardService dragBoards,
     IPasswordHasher<User> passwordHasher,
     ILoginAttemptTracker lockout,
     TimeProvider timeProvider) : IProfileService
@@ -83,6 +84,7 @@ public class ProfileService(
         {
             // Every leaderboard the driver stands on shows their name.
             await leaderboards.InvalidateAsync(await TrackIdsDrivenAsync(userId, ct), ct);
+            await dragBoards.InvalidateAsync(ct);
         }
 
         return ToResponse(user);
@@ -218,6 +220,7 @@ public class ProfileService(
             .Where(s => s.OwnerId == userId)
             .Include(s => s.Laps)
             .ThenInclude(l => l.Sectors)
+            .Include(s => s.DragResults)
             .AsSplitQuery()
             .ToListAsync(ct);
 
@@ -277,6 +280,10 @@ public class ProfileService(
                                 .OrderBy(x => x.SectorIndex)
                                 .Select(x => new SectorSplitDto { SectorIndex = x.SectorIndex, SplitMs = x.SplitMs })
                                 .ToList()))
+                        .ToList(),
+                    s.DragResults
+                        .OrderBy(r => r.Metric)
+                        .Select(r => new ExportDragResult(r.Metric, r.TimeMs, r.TrapSpeedKmh))
                         .ToList()))
                 .ToList(),
             events);
@@ -323,6 +330,7 @@ public class ProfileService(
 
             await db.LapSectors.Where(x => lapIds.Contains(x.LapId)).ExecuteDeleteAsync(ct);
             await db.Laps.Where(l => sessionIds.Contains(l.SessionId)).ExecuteDeleteAsync(ct);
+            await db.DragResults.Where(r => sessionIds.Contains(r.SessionId)).ExecuteDeleteAsync(ct);
             await db.Sessions.Where(s => s.OwnerId == userId).ExecuteDeleteAsync(ct);
 
             // With the driver's own sessions gone, any session left on one of their tracks
@@ -369,6 +377,7 @@ public class ProfileService(
         }
 
         await leaderboards.InvalidateAsync(touchedTracks, ct);
+        await dragBoards.InvalidateAsync(ct);
         await media.DeleteAsync(mediaPaths, ct);
     }
 

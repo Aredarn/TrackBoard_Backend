@@ -34,6 +34,8 @@ public class TrackBoardDbContext(DbContextOptions<TrackBoardDbContext> options)
 
     public DbSet<LapSector> LapSectors => Set<LapSector>();
 
+    public DbSet<DragResult> DragResults => Set<DragResult>();
+
     public DbSet<TrackEvent> Events => Set<TrackEvent>();
 
     public DbSet<EventGroup> EventGroups => Set<EventGroup>();

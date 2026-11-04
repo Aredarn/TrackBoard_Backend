@@ -66,6 +66,49 @@ public record LapRequest : IValidatableObject
     }
 }
 
+/// <summary>A drag session's best time for one metric.</summary>
+public record DragResultRequest : IValidatableObject
+{
+    // Nullable so [Required] can tell "missing" apart from a default value.
+    [Required]
+    [EnumDataType(typeof(DragMetric))]
+    public DragMetric? Metric { get; init; }
+
+    /// <summary>Milliseconds, up to two minutes.</summary>
+    [Range(1, 120_000)]
+    public int TimeMs { get; init; }
+
+    /// <summary>km/h at the line. Quarter mile only.</summary>
+    [Range(1.0, 700.0)]
+    public double? TrapSpeedKmh { get; init; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        // Quicker than anything on tyres has managed: a bad trace, not a record.
+        var fastestPossibleMs = Metric switch
+        {
+            DragMetric.ZeroToHundred => 1_000,
+            DragMetric.HundredToTwoHundred => 1_500,
+            DragMetric.QuarterMile => 5_000,
+            _ => 0,
+        };
+
+        if (TimeMs < fastestPossibleMs)
+        {
+            yield return new ValidationResult(
+                $"{Metric} cannot be under {fastestPossibleMs} ms.",
+                [nameof(TimeMs)]);
+        }
+
+        if (TrapSpeedKmh is not null && Metric != DragMetric.QuarterMile)
+        {
+            yield return new ValidationResult(
+                "trapSpeedKmh only applies to the quarter mile.",
+                [nameof(TrapSpeedKmh)]);
+        }
+    }
+}
+
 public record UpsertSessionRequest : IValidatableObject
 {
     [Required]
@@ -100,6 +143,10 @@ public record UpsertSessionRequest : IValidatableObject
     [MaxLength(500)]
     public IReadOnlyList<LapRequest> Laps { get; init; } = [];
 
+    /// <summary>A drag session's results. A session on a track has laps instead.</summary>
+    [MaxLength(3)]
+    public IReadOnlyList<DragResultRequest> DragResults { get; init; } = [];
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (StartedAt is not null && EndedAt is not null && EndedAt < StartedAt)
@@ -116,6 +163,22 @@ public record UpsertSessionRequest : IValidatableObject
             yield return new ValidationResult(
                 $"Lap number {duplicate.Key} appears more than once.",
                 [nameof(Laps)]);
+        }
+
+        var repeated = DragResults.GroupBy(r => r.Metric).FirstOrDefault(g => g.Count() > 1);
+
+        if (repeated is not null)
+        {
+            yield return new ValidationResult(
+                $"{repeated.Key} appears more than once.",
+                [nameof(DragResults)]);
+        }
+
+        if (DragResults.Count > 0 && (TrackId is not null || Laps.Count > 0))
+        {
+            yield return new ValidationResult(
+                "A session with drag results cannot also have a track or laps.",
+                [nameof(DragResults)]);
         }
     }
 }
@@ -137,6 +200,21 @@ public record LapResponse
     public bool CountsForLeaderboard { get; init; }
 
     /// <summary>Set when this is the driver's best ranked lap on the track.</summary>
+    public int? LeaderboardRank { get; init; }
+}
+
+public record DragResultResponse
+{
+    public DragMetric Metric { get; init; }
+
+    public int TimeMs { get; init; }
+
+    public double? TrapSpeedKmh { get; init; }
+
+    /// <summary>Ranked, non-voided session with a car.</summary>
+    public bool CountsForLeaderboard { get; init; }
+
+    /// <summary>Set when this is the driver's best on the overall board.</summary>
     public int? LeaderboardRank { get; init; }
 }
 
@@ -165,6 +243,8 @@ public record SessionSummaryResponse
     public int LapCount { get; init; }
 
     public int? BestLapMs { get; init; }
+
+    public int DragResultCount { get; init; }
 }
 
 public record SessionResponse : SessionSummaryResponse
@@ -174,6 +254,8 @@ public record SessionResponse : SessionSummaryResponse
     public string? AppVersion { get; init; }
 
     public IReadOnlyList<LapResponse> Laps { get; init; } = [];
+
+    public IReadOnlyList<DragResultResponse> DragResults { get; init; } = [];
 
     public DateTimeOffset CreatedAt { get; init; }
 

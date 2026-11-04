@@ -271,6 +271,7 @@ builder.Services.AddScoped<ISeriesService, SeriesService>();
 builder.Services.AddScoped<IRaceEventService, RaceEventService>();
 builder.Services.AddScoped<IResultService, ResultService>();
 builder.Services.AddScoped<ITrackLeaderboardService, TrackLeaderboardService>();
+builder.Services.AddScoped<IDragLeaderboardService, DragLeaderboardService>();
 builder.Services.AddScoped<ITrackService, TrackService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
