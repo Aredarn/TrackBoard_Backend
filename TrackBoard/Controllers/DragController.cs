@@ -15,8 +15,8 @@ namespace TrackBoard.Controllers;
 public class DragController(IDragLeaderboardService leaderboards) : ControllerBase
 {
     /// <summary>
-    /// Each driver's best time on a metric, fastest first, optionally within one power-to-weight
-    /// class. Public. Signing in adds the caller's own entry as <c>me</c>, even when it falls
+    /// Each car's best time on a metric, fastest first, optionally within one power-to-weight
+    /// class. Public. Signing in adds the caller's quickest entry as <c>me</c>, even when it falls
     /// outside <paramref name="limit"/>.
     /// </summary>
     [HttpGet("leaderboard")]

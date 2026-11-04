@@ -3,6 +3,7 @@ using TrackBoard.Entities;
 namespace TrackBoard.Dtos;
 
 public record DragLeaderboardEntryResponse(
+    Guid ResultId,
     int Rank,
     Guid UserId,
     string DisplayName,

@@ -64,7 +64,7 @@ public class DragLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestBa
         board.Entries.Where(e => users.Contains(e.UserId)).ToList();
 
     [Fact]
-    public async Task Each_driver_appears_once_with_their_best_time_fastest_first()
+    public async Task Each_car_appears_once_with_its_best_time_fastest_first()
     {
         var (alice, aliceAuth) = await DriverAsync("Alice");
         var aliceCar = await CarAsync(alice);
@@ -80,6 +80,24 @@ public class DragLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestBa
         entries.Select(e => (e.UserId, e.TimeMs)).ShouldBe([(bobAuth.User.Id, 4_500), (aliceAuth.User.Id, 4_900)]);
         (entries[1].TimeMs - entries[0].TimeMs).ShouldBe(entries[1].GapToLeaderMs - entries[0].GapToLeaderMs);
         board.Entries.Select(e => e.Rank).ShouldBe(Enumerable.Range(1, board.Entries.Count));
+    }
+
+    [Fact]
+    public async Task A_driver_stands_on_the_board_once_for_each_car()
+    {
+        var (client, auth) = await DriverAsync();
+        var quick = await CarAsync(client);
+        var slow = await CarAsync(client);
+
+        await UploadSessionAsync(client, DragSession(slow, [Result("ZeroToHundred", 9_000)]));
+        await UploadSessionAsync(client, DragSession(slow, [Result("ZeroToHundred", 8_500)]));
+        await UploadSessionAsync(client, DragSession(quick, [Result("ZeroToHundred", 4_000)]));
+
+        var board = await BoardAsync(client, "?limit=100");
+
+        Only(board, auth.User.Id).Select(e => e.TimeMs).ShouldBe([4_000, 8_500]);
+        board.Me.ShouldNotBeNull();
+        board.Me.TimeMs.ShouldBe(4_000);
     }
 
     [Fact]
@@ -115,7 +133,7 @@ public class DragLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestBa
     }
 
     [Fact]
-    public async Task A_class_filter_finds_a_drivers_slower_car_in_its_own_class()
+    public async Task A_class_filter_shows_only_the_car_in_that_class()
     {
         var (client, auth) = await DriverAsync();
         var fast = await CarAsync(client, horsepower: 700, weight: 1500); // 467 hp/t: S
@@ -124,9 +142,8 @@ public class DragLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestBa
         await UploadSessionAsync(client, DragSession(fast, [Result("ZeroToHundred", 3_000)]));
         await UploadSessionAsync(client, DragSession(slow, [Result("ZeroToHundred", 9_500)]));
 
-        var overall = Only(await BoardAsync(CreateClient(), "?limit=100"), auth.User.Id).Single();
-        overall.TimeMs.ShouldBe(3_000);
-        overall.CarClass.ShouldBe(DragClass.S);
+        var overall = Only(await BoardAsync(CreateClient(), "?limit=100"), auth.User.Id);
+        overall.Select(e => (e.TimeMs, e.CarClass)).ShouldBe([(3_000, DragClass.S), (9_500, DragClass.C)]);
 
         var classC = await BoardAsync(CreateClient(), "?class=C&limit=100");
         classC.CarClass.ShouldBe(DragClass.C);

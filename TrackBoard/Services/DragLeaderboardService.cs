@@ -10,9 +10,8 @@ using TrackBoard.Entities;
 namespace TrackBoard.Services;
 
 /// <summary>
-/// One car's best time on a metric, as cached. Kept per car rather than per driver: a driver's
-/// quick car may sit in a different class from their slow one, and the class filter has to
-/// find the slow one too.
+/// One car's best time on a metric, as cached. A board has a line per car, not per driver, so a
+/// driver with several cars stands on it once for each.
 /// </summary>
 public sealed record DragStanding(
     Guid ResultId,
@@ -27,7 +26,7 @@ public sealed record DragStanding(
 
 public interface IDragLeaderboardService
 {
-    /// <summary>The public board: each driver's best, overall or within one class.</summary>
+    /// <summary>The public board: each car's best, overall or within one class.</summary>
     Task<DragLeaderboardResponse> GetAsync(
         DragMetric metric,
         DragClass? carClass,
@@ -63,7 +62,7 @@ public class DragLeaderboardService(
     {
         var standings = await GetStandingsAsync(metric, ct);
 
-        var field = BestPerDriver(standings.Where(s => carClass is null || s.CarClass == carClass));
+        var field = standings.Where(s => carClass is null || s.CarClass == carClass).ToList();
         var leaderMs = field.Count > 0 ? field[0].TimeMs : 0;
 
         var entries = field.Select((s, i) => ToResponse(s, i + 1, leaderMs)).ToList();
@@ -72,14 +71,15 @@ public class DragLeaderboardService(
             metric,
             carClass,
             entries.Take(limit).ToList(),
+            // Fastest first, so with several cars this is the viewer's quickest.
             viewerId is null ? null : entries.FirstOrDefault(e => e.UserId == viewerId));
     }
 
     public async Task<IReadOnlyDictionary<Guid, int>> GetRanksAsync(DragMetric metric, CancellationToken ct)
     {
-        var field = BestPerDriver(await GetStandingsAsync(metric, ct));
+        var standings = await GetStandingsAsync(metric, ct);
 
-        return field
+        return standings
             .Select((s, i) => (s.ResultId, Rank: i + 1))
             .ToDictionary(x => x.ResultId, x => x.Rank);
     }
@@ -164,12 +164,9 @@ public class DragLeaderboardService(
             .ToArray();
     }
 
-    /// <summary>Standings arrive fastest first, so a driver's first appearance is their best.</summary>
-    private static List<DragStanding> BestPerDriver(IEnumerable<DragStanding> standings) =>
-        standings.DistinctBy(s => s.UserId).ToList();
-
     private static DragLeaderboardEntryResponse ToResponse(DragStanding s, int rank, int leaderMs) =>
         new(
+            s.ResultId,
             rank,
             s.UserId,
             s.DisplayName,

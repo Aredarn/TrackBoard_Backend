@@ -214,7 +214,7 @@ public record DragResultResponse
     /// <summary>Ranked, non-voided session with a car.</summary>
     public bool CountsForLeaderboard { get; init; }
 
-    /// <summary>Set when this is the driver's best on the overall board.</summary>
+    /// <summary>Set when this is the car's best on the overall board.</summary>
     public int? LeaderboardRank { get; init; }
 }
 

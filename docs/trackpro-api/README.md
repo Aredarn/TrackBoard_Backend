@@ -131,8 +131,9 @@ ran the same thing.
 - **Classes are derived, not stored.** Horsepower per tonne from the garage: D under 100, C under
   150, B under 250, A under 400, S above. Editing a car moves its results straight away. A car
   with no power or weight ranks overall but in no class.
-- **One line per driver**, on the overall board and within each class, so a driver's slower car
-  still shows in its own class. As on a track, a tie goes to whoever set the time first.
+- **One line per car**, on the overall board and within each class, so a driver with several
+  cars stands on a board once for each. `me` is the caller's quickest. As on a track, a tie goes
+  to whoever set the time first.
 
 `GET /sessions` and a restore on a new phone see these sessions too. The app restores only
 sessions with a track and laps, so drag sessions stay on the server and are not brought back.

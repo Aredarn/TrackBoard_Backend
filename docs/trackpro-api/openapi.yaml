@@ -528,8 +528,9 @@ paths:
       tags: [Leaderboards]
       operationId: getDragLeaderboard
       description: >-
-        Each driver's best time on one metric, fastest first, optionally within one
-        power-to-weight class. Public; a token adds the caller's own entry as `me`.
+        Each car's best time on one metric, fastest first, optionally within one
+        power-to-weight class, so a driver with several cars has a line for each. Public; a
+        token adds the caller's quickest entry as `me`.
       security:
         - {}
         - bearer: []
@@ -1119,12 +1120,13 @@ components:
         countsForLeaderboard: { type: boolean }
         leaderboardRank:
           type: [integer, 'null']
-          description: Overall rank if this is the driver's best on the board.
+          description: Overall rank if this is the car's best on the board.
 
     DragLeaderboardEntry:
       type: object
-      required: [rank, userId, displayName, timeMs, gapToLeaderMs, vehicle, setAt, gpsSource]
+      required: [resultId, rank, userId, displayName, timeMs, gapToLeaderMs, vehicle, setAt, gpsSource]
       properties:
+        resultId: { type: string, format: uuid }
         rank: { type: integer }
         userId: { type: string, format: uuid }
         displayName: { type: string }
