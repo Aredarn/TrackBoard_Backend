@@ -24,6 +24,7 @@ using TrackBoard.Data.Interceptors;
 using TrackBoard.Entities;
 using TrackBoard.Services;
 using TrackBoard.Storage;
+using TrackBoard.VehicleSpecs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -270,6 +271,15 @@ builder.Services
     .AddOptions<MediaStorageOptions>()
     .Bind(builder.Configuration.GetSection(MediaStorageOptions.SectionName));
 builder.Services.AddHttpClient<IMediaStorage, SupabaseMediaStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
+
+// ── Vehicle catalogue ────────────────────────────────────────────────────────
+// Optional, like photo storage: without VehicleSpecs__ApiKey the lookup endpoints answer 503
+// and the app's car form is filled in by hand.
+builder.Services
+    .AddOptions<VehicleSpecsOptions>()
+    .Bind(builder.Configuration.GetSection(VehicleSpecsOptions.SectionName));
+builder.Services.AddHttpClient<IVehicleSpecsClient, ApiNinjasVehicleSpecsClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(15));
 
 // ── Web ──────────────────────────────────────────────────────────────────────
