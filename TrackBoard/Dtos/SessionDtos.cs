@@ -50,6 +50,10 @@ public record LapRequest : IValidatableObject
 
     public bool SignalGap { get; init; }
 
+    /// <summary>The lap's highest GPS speed, km/h. Optional: older apps don't send it.</summary>
+    [Range(1.0, 500.0)]
+    public double? TopSpeedKmh { get; init; }
+
     [MaxLength(50)]
     public IReadOnlyList<SectorSplitDto> Sectors { get; init; } = [];
 
@@ -190,6 +194,8 @@ public record LapResponse
     public int TimeMs { get; init; }
 
     public bool SignalGap { get; init; }
+
+    public double? TopSpeedKmh { get; init; }
 
     public IReadOnlyList<SectorSplitDto> Sectors { get; init; } = [];
 

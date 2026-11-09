@@ -32,6 +32,50 @@ public class TrackLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestB
     }
 
     [Fact]
+    public async Task Per_car_gives_a_driver_a_line_for_each_car()
+    {
+        var (client, auth) = await DriverAsync();
+        var track = await CreateTrackAsync(client);
+        var quick = await CreateVehicleAsync(client);
+        var slow = await CreateVehicleAsync(client);
+
+        await UploadSessionAsync(client, SessionBody(track.Id, [Lap(1, 95_000), Lap(2, 94_000)], vehicleId: slow));
+        await UploadSessionAsync(client, SessionBody(track.Id, [Lap(1, 90_000)], vehicleId: quick));
+        await UploadSessionAsync(client, SessionBody(track.Id, [Lap(1, 99_000)]));
+
+        var response = await client.GetAsync($"/api/v1/tracks/{track.Id}/leaderboard?perCar=true");
+        var board = (await response.Content.ReadFromJsonAsync<TrackLeaderboardResponse>(Json))!;
+
+        board.Entries.Select(e => (e.Rank, e.LapTimeMs)).ShouldBe([(1, 90_000), (2, 94_000), (3, 99_000)]);
+        board.Entries.ShouldAllBe(e => e.UserId == auth.User.Id);
+        board.Entries.Select(e => e.LapId).Distinct().Count().ShouldBe(3);
+        board.Me!.LapTimeMs.ShouldBe(90_000);
+    }
+
+    [Fact]
+    public async Task Without_per_car_a_driver_stays_on_one_line_for_older_apps()
+    {
+        var (client, auth) = await DriverAsync();
+        var track = await CreateTrackAsync(client);
+
+        await UploadSessionAsync(
+            client, SessionBody(track.Id, [Lap(1, 91_000)], vehicleId: await CreateVehicleAsync(client)));
+        await UploadSessionAsync(
+            client, SessionBody(track.Id, [Lap(1, 90_000)], vehicleId: await CreateVehicleAsync(client)));
+
+        var (other, otherAuth) = await DriverAsync();
+        await UploadSessionAsync(other, SessionBody(track.Id, [Lap(1, 92_000)]));
+
+        var board = await LeaderboardAsync(CreateClient(), track.Id);
+
+        board.Entries.Select(e => (e.Rank, e.UserId, e.LapTimeMs)).ShouldBe(
+        [
+            (1, auth.User.Id, 90_000),
+            (2, otherAuth.User.Id, 92_000),
+        ]);
+    }
+
+    [Fact]
     public async Task A_tie_goes_to_whoever_set_the_time_first()
     {
         var (early, earlyAuth) = await DriverAsync("Early");
@@ -240,5 +284,38 @@ public class TrackLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestB
         var slower = session.Laps.Single(l => l.LapNumber == 1);
         slower.CountsForLeaderboard.ShouldBeTrue();
         slower.LeaderboardRank.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task An_entry_carries_the_top_speed_of_that_lap_not_the_sessions()
+    {
+        var (client, _) = await DriverAsync();
+        var track = await CreateTrackAsync(client);
+        await UploadSessionAsync(client, SessionBody(track.Id,
+        [
+            new { lapNumber = 1, timeMs = 95_000, topSpeedKmh = 214.6 },
+            new { lapNumber = 2, timeMs = 90_000, topSpeedKmh = 208.3 },
+        ]));
+
+        var (other, _) = await DriverAsync("No speed");
+        await UploadSessionAsync(other, SessionBody(track.Id, [Lap(1, 91_000)]));
+
+        var board = await LeaderboardAsync(CreateClient(), track.Id);
+
+        board.Entries.Select(e => e.TopSpeedKmh).ShouldBe([208.3, null]);
+    }
+
+    [Fact]
+    public async Task A_top_speed_beyond_500_kmh_is_rejected()
+    {
+        var (client, _) = await DriverAsync();
+        var track = await CreateTrackAsync(client);
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/v1/sessions/{Guid.NewGuid()}",
+            SessionBody(track.Id, [new { lapNumber = 1, timeMs = 90_000, topSpeedKmh = 612.0 }]),
+            Json);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 }

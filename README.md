@@ -94,7 +94,7 @@ Every route is under `/api/v1`. The full TrackPro contract is
 | Auth | `/api/v1/auth` | anonymous (`register`, `login`, `refresh`) |
 | Vehicles | `/api/v1/vehicles` | owner only; `PUT` creates or replaces under an app-generated id |
 | Tracks | `/api/v1/tracks` | **public** reads of published tracks; owner writes |
-| Track leaderboard | `/api/v1/tracks/{id}/leaderboard` | **public**; a token adds your own `me` entry |
+| Track leaderboard | `/api/v1/tracks/{id}/leaderboard` | **public**; `?perCar=true` gives a line per car rather than per driver; a token adds your own `me` entry |
 | Drag boards | `/api/v1/drag/leaderboard` | **public**; `?metric=` and `?class=`; a token adds your own `me` entry |
 | Sessions | `/api/v1/sessions` | owner only; `PUT` uploads a whole session with its laps or drag results |
 | Driver pages | `/api/v1/drivers/{id}` | **public**; name, country, bio, photo and standings on published tracks — never email or private data |

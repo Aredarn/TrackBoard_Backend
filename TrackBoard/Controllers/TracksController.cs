@@ -86,8 +86,9 @@ public class TracksController(ITrackService tracks, ITrackLeaderboardService lea
     }
 
     /// <summary>
-    /// Each driver's best lap on a published track, fastest first. Public. Signing in adds the
-    /// caller's own entry as <c>me</c>, even when it falls outside <paramref name="limit"/>.
+    /// Each driver's best lap on a published track, fastest first, or with
+    /// <paramref name="perCar"/> each car's. Public. Signing in adds the caller's quickest entry
+    /// as <c>me</c>, even when it falls outside <paramref name="limit"/>.
     /// </summary>
     [HttpGet("{id:guid}/leaderboard")]
     [Authorize(Policy = AuthorizationPolicies.OptionalAuthentication)]
@@ -97,6 +98,7 @@ public class TracksController(ITrackService tracks, ITrackLeaderboardService lea
     public async Task<ActionResult<TrackLeaderboardResponse>> GetLeaderboard(
         Guid id,
         [FromQuery, Range(1, 100)] int limit = 50,
+        [FromQuery] bool perCar = false,
         CancellationToken ct = default)
-        => Ok(await leaderboards.GetAsync(id, limit, User.TryGetUserId(), ct));
+        => Ok(await leaderboards.GetAsync(id, limit, perCar, User.TryGetUserId(), ct));
 }

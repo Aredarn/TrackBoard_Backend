@@ -275,7 +275,8 @@ public class ProfileService(
                             l.Sectors
                                 .OrderBy(x => x.SectorIndex)
                                 .Select(x => new SectorSplitDto { SectorIndex = x.SectorIndex, SplitMs = x.SplitMs })
-                                .ToList()))
+                                .ToList(),
+                            l.TopSpeedKmh))
                         .ToList(),
                     s.DragResults
                         .OrderBy(r => r.Metric)

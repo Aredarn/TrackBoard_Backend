@@ -11,8 +11,9 @@ using TrackBoard.Entities;
 namespace TrackBoard.Services;
 
 /// <summary>
-/// One driver's standing on a track, as cached. Carries the lap id, which the public response
-/// drops, so a session can look up its own lap's rank from the same cached entry.
+/// One car's standing on a track, as cached, so a driver with several cars has one for each.
+/// Laps with no car on them share a single standing per driver. Carries the lap id so a session
+/// can look up its own lap's rank from the same cached entry.
 /// </summary>
 public sealed record TrackStanding(
     Guid LapId,
@@ -24,14 +25,23 @@ public sealed record TrackStanding(
     SectorSplitDto[] Sectors,
     LeaderboardVehicleResponse? Vehicle,
     DateTimeOffset SetAt,
-    GpsSource GpsSource);
+    GpsSource GpsSource,
+    double? TopSpeedKmh = null);
 
 public interface ITrackLeaderboardService
 {
-    /// <summary>The public leaderboard. Throws <see cref="NotFoundException"/> unless the track is published.</summary>
-    Task<TrackLeaderboardResponse> GetAsync(Guid trackId, int limit, Guid? viewerId, CancellationToken ct);
+    /// <summary>
+    /// The public leaderboard: a line per car, or with <paramref name="perCar"/> false a line per
+    /// driver. Throws <see cref="NotFoundException"/> unless the track is published.
+    /// </summary>
+    Task<TrackLeaderboardResponse> GetAsync(
+        Guid trackId,
+        int limit,
+        bool perCar,
+        Guid? viewerId,
+        CancellationToken ct);
 
-    /// <summary>Every driver's standing on a track, fastest first. Served from cache.</summary>
+    /// <summary>Every car's standing on a track, fastest first. Served from cache.</summary>
     Task<IReadOnlyList<TrackStanding>> GetStandingsAsync(Guid trackId, CancellationToken ct);
 
     /// <summary>Drops the cached standings of each track. Call after the write commits.</summary>
@@ -53,6 +63,7 @@ public class TrackLeaderboardService(
     public async Task<TrackLeaderboardResponse> GetAsync(
         Guid trackId,
         int limit,
+        bool perCar,
         Guid? viewerId,
         CancellationToken ct)
     {
@@ -66,13 +77,17 @@ public class TrackLeaderboardService(
 
         var standings = await GetStandingsAsync(trackId, ct);
 
-        var entries = standings.Take(limit).Select(ToResponse).ToList();
+        // Fastest first, so a driver's first appearance is their best. The app before 1.5 keys
+        // its list by driver and crashes on a repeat, so a line per car has to be asked for.
+        var field = perCar ? standings : standings.DistinctBy(s => s.UserId).ToList();
 
-        var me = viewerId is null
-            ? null
-            : standings.FirstOrDefault(s => s.UserId == viewerId) is { } mine ? ToResponse(mine) : null;
+        var entries = field.Select((s, i) => ToResponse(s, i + 1)).ToList();
 
-        return new TrackLeaderboardResponse(trackId, trackName, entries, me);
+        return new TrackLeaderboardResponse(
+            trackId,
+            trackName,
+            entries.Take(limit).ToList(),
+            viewerId is null ? null : entries.FirstOrDefault(e => e.UserId == viewerId));
     }
 
     public async Task<IReadOnlyList<TrackStanding>> GetStandingsAsync(Guid trackId, CancellationToken ct)
@@ -111,23 +126,27 @@ public class TrackLeaderboardService(
             .Where(LeaderboardRules.CountsForLeaderboard)
             .Where(l => l.Session.TrackId == trackId);
 
-        // Each driver's fastest time, computed in SQL...
+        // Each car's fastest time, computed in SQL. A null would never match in the join below,
+        // so a lap with no car goes in under the empty id...
         var bestTimes = countingLaps
-            .GroupBy(l => l.Session.OwnerId)
-            .Select(g => new { OwnerId = g.Key, TimeMs = g.Min(l => l.TimeMs) });
+            .GroupBy(l => new { l.Session.OwnerId, CarId = l.Session.VehicleId ?? Guid.Empty })
+            .Select(g => new { g.Key.OwnerId, g.Key.CarId, TimeMs = g.Min(l => l.TimeMs) });
 
-        // ...then only the laps that equal it come back — one per driver, or a few if a
-        // driver matched their own best exactly — rather than every lap on the track.
+        // ...then only the laps that equal it come back — one per car, or a few if a car matched
+        // its own best exactly — rather than every lap on the track.
         var candidates = await (
             from lap in countingLaps
             join best in bestTimes
-                on new { lap.Session.OwnerId, lap.TimeMs } equals new { best.OwnerId, best.TimeMs }
+                on new { lap.Session.OwnerId, CarId = lap.Session.VehicleId ?? Guid.Empty, lap.TimeMs }
+                equals new { best.OwnerId, best.CarId, best.TimeMs }
             select new
             {
                 LapId = lap.Id,
+                lap.Session.VehicleId,
                 UserId = lap.Session.OwnerId,
                 lap.Session.Owner.DisplayName,
                 lap.TimeMs,
+                lap.TopSpeedKmh,
                 SetAt = lap.Session.StartedAt,
                 lap.Session.GpsSource,
                 Manufacturer = lap.Session.Vehicle != null ? lap.Session.Vehicle.Manufacturer : null,
@@ -136,17 +155,17 @@ public class TrackLeaderboardService(
             })
             .ToListAsync(ct);
 
-        // Ties are broken by whoever set the time first, both between drivers and when a
-        // driver matched their own best. The lap id is a final, arbitrary but stable decider.
-        var bestPerDriver = candidates
-            .GroupBy(c => c.UserId)
+        // Ties are broken by whoever set the time first, both between cars and when a car
+        // matched its own best. The lap id is a final, arbitrary but stable decider.
+        var bestPerCar = candidates
+            .GroupBy(c => new { c.UserId, c.VehicleId })
             .Select(g => g.OrderBy(c => c.SetAt).ThenBy(c => c.LapId).First())
             .OrderBy(c => c.TimeMs)
             .ThenBy(c => c.SetAt)
             .ThenBy(c => c.LapId)
             .ToList();
 
-        var lapIds = bestPerDriver.Select(c => c.LapId).ToList();
+        var lapIds = bestPerCar.Select(c => c.LapId).ToList();
 
         var sectorsByLap = (await db.LapSectors
                 .AsNoTracking()
@@ -159,9 +178,9 @@ public class TrackLeaderboardService(
                     .Select(s => new SectorSplitDto { SectorIndex = s.SectorIndex, SplitMs = s.SplitMs })
                     .ToArray());
 
-        var leaderMs = bestPerDriver.Count > 0 ? bestPerDriver[0].TimeMs : 0;
+        var leaderMs = bestPerCar.Count > 0 ? bestPerCar[0].TimeMs : 0;
 
-        return bestPerDriver
+        return bestPerCar
             .Select((c, i) => new TrackStanding(
                 c.LapId,
                 i + 1,
@@ -174,13 +193,15 @@ public class TrackLeaderboardService(
                     ? null
                     : new LeaderboardVehicleResponse(c.Manufacturer, c.Model!, c.Year!.Value),
                 c.SetAt,
-                c.GpsSource))
+                c.GpsSource,
+                c.TopSpeedKmh))
             .ToArray();
     }
 
-    private static TrackLeaderboardEntryResponse ToResponse(TrackStanding s) =>
+    private static TrackLeaderboardEntryResponse ToResponse(TrackStanding s, int rank) =>
         new(
-            s.Rank,
+            s.LapId,
+            rank,
             s.UserId,
             s.DisplayName,
             s.LapTimeMs,
@@ -188,5 +209,6 @@ public class TrackLeaderboardService(
             s.Sectors,
             s.Vehicle,
             s.SetAt,
-            s.GpsSource);
+            s.GpsSource,
+            s.TopSpeedKmh);
 }

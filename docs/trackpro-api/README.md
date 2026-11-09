@@ -111,6 +111,12 @@ Phone-GPS and ESP32 laps share **one leaderboard**. Every session records `gpsSo
 (`Wifi` or `Bluetooth` for the ESP32 module, `PhoneGps` for the phone), and each
 leaderboard entry shows it, so viewers can tell a phone-timed lap apart from an ESP32 one.
 
+`?perCar=true` gives a line per car instead of per driver, so a driver with several cars stands
+on the board once for each; laps with no car share one line per driver. It is opt-in because
+TrackPro before 1.5 keys its list by driver and crashes on a repeated one. Entries carry a
+`lapId` to key by. Ranks on sessions, profiles and driver pages always count per car, and those
+pages show the driver's quickest. Event boards stay one line per driver.
+
 ### 6a. Drag boards
 
 Added after v1. A drag session goes up through the same `PUT /sessions/{id}`, with no track, no

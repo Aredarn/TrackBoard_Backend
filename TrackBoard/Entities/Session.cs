@@ -89,6 +89,12 @@ public class Lap
     /// <summary>GPS dropped out during the lap. Such laps never rank.</summary>
     public bool SignalGap { get; set; }
 
+    /// <summary>
+    /// The highest GPS speed of the lap, km/h, as the app measured it. Null for laps uploaded
+    /// before the app sent it, or recorded without speed in the fixes.
+    /// </summary>
+    public double? TopSpeedKmh { get; set; }
+
     public ICollection<LapSector> Sectors { get; set; } = [];
 }
 

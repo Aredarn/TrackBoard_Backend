@@ -570,6 +570,12 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: perCar
+          in: query
+          description: >-
+            A line per car rather than per driver. Opt-in: a driver can then appear more than
+            once, so key entries by `lapId`.
+          schema: { type: boolean, default: false }
       responses:
         '200':
           description: The leaderboard, plus the caller's own position if they have one.
@@ -1026,6 +1032,13 @@ components:
           type: boolean
           default: false
           description: GPS dropped out during the lap. Such laps never rank.
+        topSpeedKmh:
+          type: [number, 'null']
+          minimum: 1
+          maximum: 500
+          description: >-
+            The lap's highest GPS speed, km/h, taken from the lap's fixes with single-fix spikes
+            smoothed out. Optional; left out when the fixes carried no speed.
         sectors:
           type: array
           maxItems: 50
@@ -1212,8 +1225,9 @@ components:
     # ── Leaderboards ──
     LeaderboardEntry:
       type: object
-      required: [rank, userId, displayName, lapTimeMs, setAt, gpsSource]
+      required: [lapId, rank, userId, displayName, lapTimeMs, setAt, gpsSource]
       properties:
+        lapId: { type: string, format: uuid }
         rank: { type: integer, minimum: 1 }
         userId: { type: string, format: uuid }
         displayName: { type: string }
@@ -1228,6 +1242,9 @@ components:
             - type: 'null'
         setAt: { type: string, format: date-time }
         gpsSource: { $ref: '#/components/schemas/GpsSource' }
+        topSpeedKmh:
+          type: [number, 'null']
+          description: Highest GPS speed on this lap, km/h. Null if the app didn't send one.
 
     Leaderboard:
       type: object
