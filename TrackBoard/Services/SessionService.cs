@@ -151,6 +151,7 @@ public class SessionService(
                     LapNumber = l.LapNumber,
                     TimeMs = l.TimeMs,
                     SignalGap = l.SignalGap,
+                    TopSpeedKmh = l.TopSpeedKmh,
                     Sectors = l.Sectors
                         .OrderBy(s => s.SectorIndex)
                         .Select(s => new SectorSplitDto { SectorIndex = s.SectorIndex, SplitMs = s.SplitMs })
@@ -242,6 +243,7 @@ public class SessionService(
             LapNumber = l.LapNumber,
             TimeMs = l.TimeMs,
             SignalGap = l.SignalGap,
+            TopSpeedKmh = l.TopSpeedKmh,
             Sectors = l.Sectors
                 .Select(s => new LapSector { SectorIndex = s.SectorIndex, SplitMs = s.SplitMs })
                 .ToList(),

@@ -37,6 +37,9 @@ public interface IDragLeaderboardService
     /// <summary>Overall rank by result id, for the results that stand on the board.</summary>
     Task<IReadOnlyDictionary<Guid, int>> GetRanksAsync(DragMetric metric, CancellationToken ct);
 
+    /// <summary>Every car's best on a metric, fastest first. Served from cache.</summary>
+    Task<DragStanding[]> GetStandingsAsync(DragMetric metric, CancellationToken ct);
+
     /// <summary>Drops every cached board. Call after the write commits.</summary>
     Task InvalidateAsync(CancellationToken ct);
 }
@@ -87,7 +90,7 @@ public class DragLeaderboardService(
     public async Task InvalidateAsync(CancellationToken ct) =>
         await cache.RemoveByTagAsync(CacheKeys.DragTag, ct);
 
-    private async Task<DragStanding[]> GetStandingsAsync(DragMetric metric, CancellationToken ct)
+    public async Task<DragStanding[]> GetStandingsAsync(DragMetric metric, CancellationToken ct)
     {
         var startedAt = Stopwatch.GetTimestamp();
         var wasMiss = false;
@@ -157,7 +160,7 @@ public class DragLeaderboardService(
                 c.DisplayName,
                 c.TimeMs,
                 c.TrapSpeedKmh,
-                new LeaderboardVehicleResponse(c.Manufacturer, c.Model, c.Year),
+                new LeaderboardVehicleResponse(c.Manufacturer, c.Model, c.Year, c.VehicleId),
                 DragRules.ClassOf(c.Horsepower, c.Weight),
                 c.SetAt,
                 c.GpsSource))

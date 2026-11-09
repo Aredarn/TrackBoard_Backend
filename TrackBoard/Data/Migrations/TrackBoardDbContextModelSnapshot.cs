@@ -200,6 +200,10 @@ namespace TrackBoard.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("time_ms");
 
+                    b.Property<double?>("TopSpeedKmh")
+                        .HasColumnType("double precision")
+                        .HasColumnName("top_speed_kmh");
+
                     b.HasKey("Id")
                         .HasName("pk_laps");
 

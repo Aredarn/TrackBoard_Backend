@@ -261,6 +261,7 @@ builder.Services.AddScoped<ITrackService, TrackService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IDriverService, DriverService>();
+builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IEventBoardService, EventBoardService>();
 

@@ -114,7 +114,7 @@ public record ProfileStatsResponse(
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-public record ExportLap(int LapNumber, int TimeMs, bool SignalGap, IReadOnlyList<SectorSplitDto> Sectors);
+public record ExportLap(int LapNumber, int TimeMs, bool SignalGap, IReadOnlyList<SectorSplitDto> Sectors, double? TopSpeedKmh);
 
 public record ExportDragResult(DragMetric Metric, int TimeMs, double? TrapSpeedKmh);
 
