@@ -191,7 +191,7 @@ public class TrackLeaderboardService(
                 sectorsByLap.GetValueOrDefault(c.LapId, []),
                 c.Manufacturer is null
                     ? null
-                    : new LeaderboardVehicleResponse(c.Manufacturer, c.Model!, c.Year!.Value),
+                    : new LeaderboardVehicleResponse(c.Manufacturer, c.Model!, c.Year!.Value, c.VehicleId),
                 c.SetAt,
                 c.GpsSource,
                 c.TopSpeedKmh))

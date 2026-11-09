@@ -552,6 +552,33 @@ paths:
               schema: { $ref: '#/components/schemas/DragLeaderboard' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
 
+  /cars/{carId}:
+    get:
+      tags: [Leaderboards]
+      operationId: getPublicCar
+      description: >-
+        A car's public page, linked from board entries by `vehicle.id`. Public; a token changes
+        nothing.
+      security:
+        - {}
+        - bearer: []
+      parameters:
+        - name: carId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The car.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicCar' }
+        '404':
+          description: No such car, its owner deleted their account, or it has no place on a public board.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+
   /tracks/{trackId}/leaderboard:
     parameters:
       - $ref: '#/components/parameters/TrackId'
@@ -903,6 +930,73 @@ components:
         manufacturer: { type: string }
         model: { type: string }
         year: { type: integer }
+        id:
+          type: [string, 'null']
+          format: uuid
+          description: >-
+            The car, for its public page (`GET /cars/{id}`). Set on track and drag boards; null
+            on event boards, which can carry laps from private sessions.
+
+    PublicCar:
+      type: object
+      description: >-
+        A car's garage entry and its place on every public board. Only cars with a place on a
+        public track or drag board have a page.
+      required: [id, ownerId, ownerDisplayName, manufacturer, model, year, trackBests, dragBests]
+      properties:
+        id: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid }
+        ownerDisplayName: { type: string }
+        manufacturer: { type: string }
+        model: { type: string }
+        year: { type: integer }
+        photoUrl: { type: [string, 'null'], format: uri }
+        engineType: { type: string }
+        horsepower: { type: integer }
+        torque: { type: [integer, 'null'] }
+        weight: { type: number, description: kg }
+        topSpeed: { type: [number, 'null'], description: km/h, as listed in the garage }
+        acceleration: { type: [number, 'null'], description: 0-100 km/h seconds, as listed }
+        drivetrain: { type: string }
+        fuelType: { type: string }
+        tireType: { type: string }
+        transmission: { type: string }
+        suspensionType: { type: [string, 'null'] }
+        carClass:
+          oneOf:
+            - $ref: '#/components/schemas/DragClass'
+            - type: 'null'
+        trackBests:
+          type: array
+          description: Best position first, then by track name.
+          items:
+            type: object
+            properties:
+              trackId: { type: string, format: uuid }
+              trackName: { type: string }
+              country: { type: string }
+              trackType: { $ref: '#/components/schemas/TrackType' }
+              rank: { type: integer }
+              fieldSize: { type: integer }
+              lapTimeMs: { type: integer }
+              gapToLeaderMs: { type: integer }
+              topSpeedKmh: { type: [number, 'null'] }
+              setAt: { type: string, format: date-time }
+              gpsSource: { $ref: '#/components/schemas/GpsSource' }
+        dragBests:
+          type: array
+          description: In metric order; rank is on the overall board.
+          items:
+            type: object
+            properties:
+              metric: { $ref: '#/components/schemas/DragMetric' }
+              rank: { type: integer }
+              fieldSize: { type: integer }
+              timeMs: { type: integer }
+              gapToLeaderMs: { type: integer }
+              trapSpeedKmh: { type: [number, 'null'] }
+              setAt: { type: string, format: date-time }
+              gpsSource: { $ref: '#/components/schemas/GpsSource' }
 
     # ── Tracks ──
     TrackType:

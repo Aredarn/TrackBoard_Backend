@@ -138,7 +138,7 @@ public class TrackLeaderboardTests(TrackBoardApiFactory factory) : TrackProTestB
         var entry = (await LeaderboardAsync(CreateClient(), track.Id)).Entries.ShouldHaveSingleItem();
 
         entry.Sectors.Select(s => s.SplitMs).ShouldBe([42_000, 48_000]);
-        entry.Vehicle.ShouldBe(new LeaderboardVehicleResponse("Porsche", "911 GT3", 2023));
+        entry.Vehicle.ShouldBe(new LeaderboardVehicleResponse("Porsche", "911 GT3", 2023, vehicleId));
     }
 
     [Fact]
