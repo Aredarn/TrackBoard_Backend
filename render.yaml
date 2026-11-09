@@ -36,6 +36,14 @@ services:
         sync: false
       - key: Supabase__MediaBucket
         value: trackboard-media
+      # Vehicle catalogue (optional): an API Ninjas key for the app's make/model/year lookup.
+      # Without it those endpoints answer 503 and the app's car form is filled in by hand.
+      - key: VehicleSpecs__ApiKey
+        sync: false
+      # "true" only on a plan that includes /v2/cars (Developer and up): full car spec sheets
+      # instead of the free tier's fuel/gearbox/drive/cylinder facets.
+      - key: VehicleSpecs__CarDetails
+        value: "false"
       # The TrackBoard web app's origin (the TrackBoard-Web static site), e.g.
       # https://trackboard-web.onrender.com. Set in the dashboard once the site exists; without
       # it browsers get no CORS grant and the web app cannot call the API.

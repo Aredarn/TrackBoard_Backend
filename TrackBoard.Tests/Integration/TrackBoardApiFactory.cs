@@ -59,6 +59,12 @@ public class TrackBoardApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment(Environments.Development);
 
+        // Program reads the connection string at the top, before the host is built, and
+        // ConfigureAppConfiguration below only lands at build time. A host setting is there
+        // from the start. Without it the tests passed only on machines whose user-secrets
+        // happened to hold a connection string, and failed on CI.
+        builder.UseSetting("ConnectionStrings:Default", "Host=unused;Database=unused");
+
         builder.ConfigureAppConfiguration((_, config) =>
         {
             var settings = new Dictionary<string, string?>
