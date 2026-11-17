@@ -36,6 +36,15 @@ services:
         sync: false
       - key: Supabase__MediaBucket
         value: trackboard-media
+      # Personal backup (session archives). A PRIVATE bucket: it holds GPS location history,
+      # read only through short-lived signed URLs. Uses the same Supabase URL and key.
+      - key: Supabase__BackupBucket
+        value: trackboard-backup
+      # 50 MiB per archive, 500 MiB per driver.
+      - key: Backup__MaxArchiveBytes
+        value: "52428800"
+      - key: Backup__QuotaBytesPerUser
+        value: "524288000"
       # Vehicle catalogue (optional): an API Ninjas key for the app's make/model/year lookup.
       # Without it those endpoints answer 503 and the app's car form is filled in by hand.
       - key: VehicleSpecs__ApiKey

@@ -168,4 +168,5 @@ public record AccountExportResponse(
     IReadOnlyList<VehicleResponse> Vehicles,
     IReadOnlyList<ExportTrack> Tracks,
     IReadOnlyList<ExportSession> Sessions,
-    IReadOnlyList<ExportEvent> Events);
+    IReadOnlyList<ExportEvent> Events,
+    ExportBackup Backup);

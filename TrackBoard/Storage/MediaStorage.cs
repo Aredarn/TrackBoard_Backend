@@ -27,6 +27,12 @@ public class MediaStorageOptions
     /// <summary>A public bucket. Object paths carry a random id, so they are not guessable.</summary>
     public string MediaBucket { get; set; } = "trackboard-media";
 
+    /// <summary>
+    /// A private bucket for session archives. They hold GPS location history, so nothing in
+    /// it is ever public: reads go through short-lived signed URLs only.
+    /// </summary>
+    public string BackupBucket { get; set; } = "trackboard-backup";
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Url) && !string.IsNullOrWhiteSpace(ServiceRoleKey);
 }

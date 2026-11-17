@@ -34,6 +34,7 @@ public interface IProfileService
 public class ProfileService(
     TrackBoardDbContext db,
     IMediaStorage media,
+    IBackupStorage backupStorage,
     IResourceAuthorizer authorizer,
     IVehicleService vehicles,
     ITrackLeaderboardService leaderboards,
@@ -234,6 +235,18 @@ public class ProfileService(
                 e.Entries.Where(x => x.UserId == userId && x.Group != null).Select(x => x.Group!.Name).FirstOrDefault()))
             .ToListAsync(ct);
 
+        // What is backed up, not the archives: those are the app's own files, fetched one by
+        // one through the backup download endpoint.
+        var backupSessions = await db.BackupSessions
+            .AsNoTracking()
+            .Where(b => b.OwnerId == userId)
+            .OrderBy(b => b.StartedAt)
+            .ToListAsync(ct);
+
+        var backupSettings = await db.BackupSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.OwnerId == userId, ct);
+
         return new AccountExportResponse(
             timeProvider.GetUtcNow(),
             ToResponse(user),
@@ -283,7 +296,10 @@ public class ProfileService(
                         .Select(r => new ExportDragResult(r.Metric, r.TimeMs, r.TrapSpeedKmh))
                         .ToList()))
                 .ToList(),
-            events);
+            events,
+            new ExportBackup(
+                backupSessions.Select(BackupService.ToResponse).ToList(),
+                backupSettings is null ? null : BackupService.ToResponse(backupSettings)));
     }
 
     /// <remarks>
@@ -303,6 +319,11 @@ public class ProfileService(
             .Where(v => v.OwnerId == userId)
             .Select(v => v.PhotoPath)
             .ToListAsync(ct));
+
+        var backupPaths = await db.BackupSessions
+            .Where(b => b.OwnerId == userId)
+            .Select(b => (string?)b.Path)
+            .ToListAsync(ct);
 
         var touchedTracks = await TrackIdsDrivenAsync(userId, ct);
 
@@ -345,6 +366,10 @@ public class ProfileService(
 
             await db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(ct);
 
+            // The backup is the driver's alone; nobody else depends on it, so it always goes.
+            await db.BackupSessions.Where(b => b.OwnerId == userId).ExecuteDeleteAsync(ct);
+            await db.BackupSettings.Where(s => s.OwnerId == userId).ExecuteDeleteAsync(ct);
+
             // A track another host's event runs on stays, like one other drivers have timed on.
             var stillReferenced =
                 await db.Tracks.AnyAsync(t => t.OwnerId == userId, ct)
@@ -374,6 +399,11 @@ public class ProfileService(
         await leaderboards.InvalidateAsync(touchedTracks, ct);
         await dragBoards.InvalidateAsync(ct);
         await media.DeleteAsync(mediaPaths, ct);
+
+        // Location history: the committed archives by path, then a sweep of the driver's folder
+        // for uploads that were sent but never committed. Both are best effort and logged.
+        await backupStorage.DeleteAsync(backupPaths, ct);
+        await backupStorage.DeleteFolderAsync(BackupService.UserFolder(userId), ct);
     }
 
     public async Task<UploadTargetResponse> CreateUploadAsync(

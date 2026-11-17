@@ -46,6 +46,11 @@ public sealed partial class GlobalExceptionHandler(
                 "Access denied",
                 forbidden.Message),
 
+            PayloadTooLargeException tooLarge => (
+                StatusCodes.Status413PayloadTooLarge,
+                "Too large",
+                tooLarge.Message),
+
             ServiceUnavailableException unavailable => (
                 StatusCodes.Status503ServiceUnavailable,
                 "Not available on this server",
@@ -89,7 +94,14 @@ public sealed partial class GlobalExceptionHandler(
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}",
         };
 
-        if (exception is ConflictException { Code: { } code })
+        var code = exception switch
+        {
+            ConflictException conflict => conflict.Code,
+            PayloadTooLargeException tooLarge => tooLarge.Code,
+            _ => null,
+        };
+
+        if (code is not null)
         {
             problem.Extensions["code"] = code;
         }

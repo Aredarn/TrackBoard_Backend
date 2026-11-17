@@ -42,6 +42,10 @@ public class TrackBoardDbContext(DbContextOptions<TrackBoardDbContext> options)
 
     public DbSet<EventEntry> EventEntries => Set<EventEntry>();
 
+    public DbSet<BackupSession> BackupSessions => Set<BackupSession>();
+
+    public DbSet<BackupSettings> BackupSettings => Set<BackupSettings>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
