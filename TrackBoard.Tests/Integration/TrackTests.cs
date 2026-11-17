@@ -193,6 +193,34 @@ public class TrackTests(TrackBoardApiFactory factory) : TrackProTestBase(factory
     }
 
     [Fact]
+    public async Task A_private_track_stays_out_of_every_view_another_signed_in_driver_has()
+    {
+        // The app backs up every track a driver made, unpublished ones included, as Private.
+        const double lat = 61.5;
+        const double lon = 23.7;
+        var (owner, _) = await DriverAsync("Owner");
+        var hidden = await CreateTrackAsync(owner, TrackBody("Backed-up only", lat, lon, visibility: "Private"));
+
+        var (stranger, _) = await DriverAsync("Stranger");
+
+        var listed = await stranger.GetFromJsonAsync<PagedResult<TrackSummaryResponse>>("/api/v1/tracks?pageSize=100", Json);
+        listed!.Items.ShouldNotContain(t => t.Id == hidden.Id);
+
+        var near = await stranger.GetFromJsonAsync<PagedResult<TrackSummaryResponse>>(
+            "/api/v1/tracks?near=61.5,23.7&radiusKm=5", Json);
+        near!.Items.ShouldNotContain(t => t.Id == hidden.Id);
+
+        var theirs = await stranger.GetFromJsonAsync<PagedResult<TrackSummaryResponse>>("/api/v1/tracks?mine=true", Json);
+        theirs!.Items.ShouldNotContain(t => t.Id == hidden.Id);
+
+        (await stranger.GetAsync($"/api/v1/tracks/{hidden.Id}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await stranger.GetAsync($"/api/v1/tracks/{hidden.Id}/leaderboard")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var ownList = await owner.GetFromJsonAsync<PagedResult<TrackSummaryResponse>>("/api/v1/tracks?mine=true", Json);
+        ownList!.Items.ShouldContain(t => t.Id == hidden.Id);
+    }
+
+    [Fact]
     public async Task Geometry_is_locked_once_the_track_has_a_ranked_lap()
     {
         var (client, _) = await DriverAsync();

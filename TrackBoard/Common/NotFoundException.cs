@@ -37,3 +37,13 @@ public class ForbiddenException(string message) : Exception(message);
 /// rather than "something broke".
 /// </summary>
 public class ServiceUnavailableException(string message) : Exception(message);
+
+/// <summary>
+/// Thrown when a request is well-formed but too big for this server's limits. Maps to 413.
+/// </summary>
+/// <param name="message">Human-readable explanation.</param>
+/// <param name="code">Optional stable identifier, returned as the problem's <c>code</c>.</param>
+public class PayloadTooLargeException(string message, string? code = null) : Exception(message)
+{
+    public string? Code { get; } = code;
+}

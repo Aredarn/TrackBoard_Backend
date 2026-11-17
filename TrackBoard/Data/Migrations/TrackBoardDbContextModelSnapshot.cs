@@ -22,6 +22,88 @@ namespace TrackBoard.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("TrackBoard.Entities.BackupSession", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("path");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("OwnerId", "Id")
+                        .HasName("pk_backup_sessions");
+
+                    b.HasIndex("OwnerId", "StartedAt")
+                        .HasDatabaseName("ix_backup_sessions_owner_id_started_at");
+
+                    b.ToTable("backup_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("TrackBoard.Entities.BackupSettings", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("Data")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("data");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("OwnerId")
+                        .HasName("pk_backup_settings");
+
+                    b.ToTable("backup_settings", (string)null);
+                });
+
             modelBuilder.Entity("TrackBoard.Entities.Circuit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -999,6 +1081,30 @@ namespace TrackBoard.Data.Migrations
                         .HasDatabaseName("ix_vehicles_manufacturer_model");
 
                     b.ToTable("vehicles", (string)null);
+                });
+
+            modelBuilder.Entity("TrackBoard.Entities.BackupSession", b =>
+                {
+                    b.HasOne("TrackBoard.Entities.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_backup_sessions_users_owner_id");
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("TrackBoard.Entities.BackupSettings", b =>
+                {
+                    b.HasOne("TrackBoard.Entities.User", "Owner")
+                        .WithOne()
+                        .HasForeignKey("TrackBoard.Entities.BackupSettings", "OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_backup_settings_users_owner_id");
+
+                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("TrackBoard.Entities.DragResult", b =>

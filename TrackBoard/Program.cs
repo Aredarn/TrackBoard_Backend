@@ -264,6 +264,7 @@ builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IEventBoardService, EventBoardService>();
+builder.Services.AddScoped<IBackupService, BackupService>();
 
 // ── Media storage ────────────────────────────────────────────────────────────
 // Optional. Without Supabase__Url and Supabase__ServiceRoleKey the API runs normally and
@@ -272,6 +273,17 @@ builder.Services
     .AddOptions<MediaStorageOptions>()
     .Bind(builder.Configuration.GetSection(MediaStorageOptions.SectionName));
 builder.Services.AddHttpClient<IMediaStorage, SupabaseMediaStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
+
+// ── Personal backup ──────────────────────────────────────────────────────────
+// Session archives go to a second, private bucket in the same Supabase project, so the same
+// URL and key turn it on; without them every backup endpoint answers 503.
+builder.Services
+    .AddOptions<BackupOptions>()
+    .Bind(builder.Configuration.GetSection(BackupOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IBackupStorage, SupabaseBackupStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(15));
 
 // ── Vehicle catalogue ────────────────────────────────────────────────────────
